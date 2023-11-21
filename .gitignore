@@ -1,32 +1,520 @@
-# Prerequisites
-*.d
+#include <iostream>
+#include <fstream>
+#include <ctime>
+#include <cstring>
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+using namespace std;
 
-# Precompiled Headers
-*.gch
-*.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+struct SpaceMarineUnit {
+    char name[30];
+    char category[20];
+    int points;
+    SpaceMarineUnit* next;
+};
 
-# Fortran module files
-*.mod
-*.smod
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+struct ArmyList {
+    string name;
+    string date;
+    SpaceMarineUnit units;
+    SpaceMarineUnit* character = NULL;
+    SpaceMarineUnit* LineUnits = NULL;
+    SpaceMarineUnit* InfantryUnits = NULL;
+    SpaceMarineUnit* VehicleUnits = NULL;
+    int totalPoints;
+    int id;
+    int maxUnits;
+    int maxCharacters;
+    int maxLineUnits;
+    int maxInfantryUnits;
+    int maxVehicleUnits;
+    int charactersCount;
+    int lineCount;
+    int infantryCount;
+    int vehicleCount;
+    ArmyList* next;
+};
 
-# Executables
-*.exe
-*.out
-*.app
+
+void captureUnits();
+void countUnits(ArmyList& selectedList, int& charactersCount, int& lineCount, int& infantryCount, int& vehicleCount);
+void releaseMemory(ArmyList armyLists[]);
+void createArmyList(ArmyList armyLists[], int& armyCount, SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void displayUnits(SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void displayeditArmyList(ArmyList& selectedList, SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void editArmyList(ArmyList armyLists[], int armyCount, SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void displayArmyList(ArmyList armyList);
+void searchUnits(SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void saveToFile(ArmyList armyLists[], int armyCount);
+void loadFromFile(ArmyList armyLists[], int& armyCount);
+void printToFile(SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void alphabeticalSort(SpaceMarineUnit spaceMarineUnits[], int unitCount);
+void getTime();
+
+int main() {
+	setlocale(LC_ALL, "spanish") ;
+	SpaceMarineUnit spaceMarineUnits[16]; // Array para almacenar las unidades de Space Marines
+    int unitCount = 16; // Cantidad de unidades predefinidas
+
+    ArmyList* armyLists = NULL; // Puntero para la lista simplemente enlazada de listas de ejército
+    int armyCount = 0; // Contador de listas de ejército
+
+    captureUnits(); // Captura las unidades predefinidas
+
+    int option;
+    while (true) {
+        cout << "------ MENÚ ------" << endl;
+        cout << "1. Crear nueva lista de ejército" << endl;
+        cout << "2. Editar lista de ejército" << endl;
+        cout << "3. Buscar Unidades de ejercito" << endl;
+		cout << "4. Imprimir lista de ejercito" << endl; 
+
+        cout << "Seleccione una opción (0 para salir): ";
+        cin >> option;
+
+        switch (option) {
+            case 1:
+                createArmyList(armyLists, armyCount, spaceMarineUnits, unitCount);
+                break;
+            case 2:
+                editArmyList(armyLists, armyCount, spaceMarineUnits, unitCount);
+                break;
+            case 3: 
+            	searchUnits(spaceMarineUnits, unitCount);
+            	break;
+            case 4: 
+            	printToFile(spaceMarineUnits,armyCount);
+            case 0:
+                cout << "Saliendo del programa..." << endl;
+                releaseMemory(armyLists);
+                break;
+            default:
+                cout << "Opción no válida. Inténtelo de nuevo." << endl;
+                break;
+        }
+    }
+
+    return 0;
+}
+
+void captureUnits() {
+    fstream file("units_sm.bin", ios::binary | ios::out);
+    
+    if (!file.is_open()) {
+    	cout<<" No se pudo abrir el archivo para la escritura."<<endl;
+    	return;
+	}
+	
+	SpaceMarineUnit units[] = {
+		{"Captain", "Personaje", 80},
+        {"Apothecary", "Personaje", 50},
+        {"Chaplain", "Personaje", 60},
+        {"Techmarine", "Personaje", 55},
+        {"Assault_Intercessor_Squad", "Linea de Batalla", 80},
+        {"Heavy_Intercessor_Squad", "Linea de Batalla", 105},
+        {"Intercessor_Squad", "Linea de Batalla", 85},
+        {"Tactical_Squad", "Linea de Batalla", 160},
+        {"Aggressor_Squad", "Infanteria", 110},
+        {"Eliminator_Squad", "Infanteria", 75},
+        {"Devastator_Squad", "Infanteria", 120},
+        {"Terminator_Squad", "Infanteria", 185},
+        {"Rhino", "Vehiculo", 75},
+        {"Vindicator", "Vehiculo", 190},
+        {"Repulsor", "Vehiculo", 190},
+        {"Astraeus", "Vehiculo", 525}
+	};
+	
+    file.write(reinterpret_cast<char*>(&units), sizeof(SpaceMarineUnit) * 16);
+	file.close();
+}
+
+void countUnits(ArmyList& selectedList, int& charactersCount, int& lineCount, int& infantryCount, int& vehicleCount) {
+    charactersCount = 0;
+    lineCount = 0;
+    infantryCount = 0;
+    vehicleCount = 0;
+
+    // Contar unidades de cada tipo en la lista de ejército seleccionada
+    if (selectedList.character != NULL) {
+        charactersCount++;
+    }
+
+    lineCount = selectedList.lineCount;
+    infantryCount = selectedList.infantryCount;
+    vehicleCount = selectedList.vehicleCount;
+}
+
+void displayUnits(SpaceMarineUnit spaceMarineUnits[], int unitCount) {
+	 ifstream file("units_sm.bin", ios::binary);
+
+    if (!file.is_open()) {
+        cout << "No se pudo abrir el archivo para la lectura." << endl;
+        return;
+    }
+
+    SpaceMarineUnit unit;
+    cout << "Unidades de Space Marines disponibles:" << endl;
+
+    while (file.read(reinterpret_cast<char*>(&unit), sizeof(SpaceMarineUnit))) {
+        cout << "Nombre: " << unit.name << " - Categoría: " << unit.category << " - Puntos: " << unit.points << endl;
+    }
+
+    file.close();
+}
+
+ void releaseMemory(ArmyList armyLists[]) {
+	if (armyLists->character != NULL) {
+        delete armyLists->character;
+        armyLists->character = NULL;
+    }
+
+    if (armyLists->LineUnits != NULL) {
+        delete[] armyLists->LineUnits;
+        armyLists->LineUnits = NULL;
+    }
+
+    if (armyLists->InfantryUnits != NULL) {
+        delete[] armyLists->InfantryUnits;
+        armyLists->InfantryUnits = NULL;
+    }
+
+    if (armyLists->VehicleUnits != NULL) {
+        delete[] armyLists->VehicleUnits;
+        armyLists->VehicleUnits = NULL;
+    }
+}
+
+void createArmyList(ArmyList armyLists[], int& armyCount, SpaceMarineUnit spaceMarineUnits[], int unitCount) {
+    cout << "----------------CREACION DE LISTA DE EJERCITO DE SPACE MARINES---------------------" << endl;
+
+    if (armyCount >= 2) {
+        cout << "Se alcanzó el límite de listas permitidas." << endl;
+        return;
+    }
+
+    ArmyList newArmyList;
+    newArmyList.id = armyCount + 1;
+    newArmyList.totalPoints = 0;
+    newArmyList.character = 0;
+    newArmyList.LineUnits = 0;
+    newArmyList.InfantryUnits = 0;
+    newArmyList.VehicleUnits = 0;
+    newArmyList.maxUnits = 100;
+    newArmyList.maxCharacters = 1;
+    newArmyList.maxLineUnits = 4;
+    newArmyList.maxInfantryUnits = 3;
+    newArmyList.maxVehicleUnits = 2;
+
+    cout << "Ingrese el nombre de la lista: ";
+    cin >> newArmyList.name;
+
+    displayUnits(spaceMarineUnits, unitCount);
+
+    newArmyList.charactersCount = 0;
+    newArmyList.lineCount = 0;
+    newArmyList.infantryCount = 0;
+    newArmyList.vehicleCount = 0;
+
+    while (newArmyList.totalPoints <= 500) {
+        int choice;
+        cout << "Seleccione una unidad para agregar (1-" << unitCount << "), o 0 para terminar: ";
+        cin >> choice;
+
+        if (choice == 0) {
+            break;
+        }
+
+        if (choice < 1 || choice > unitCount) {
+            cout << "Selección inválida. Inténtelo de nuevo." << endl;
+            continue;
+        }
+
+        SpaceMarineUnit selectedUnit = spaceMarineUnits[choice - 1];
+
+        if (selectedUnit.category == "Personaje" && newArmyList.charactersCount >= 1) {
+            cout << "Ya se ha seleccionado un personaje." << endl;
+            continue;
+        } else if (selectedUnit.category == "Linea de Batalla" && newArmyList.lineCount >= 4) {
+            cout << "Se alcanzó el límite de unidades de línea de batalla." << endl;
+            continue;
+        } else if (selectedUnit.category == "Infanteria" && newArmyList.infantryCount >= 3) {
+            cout << "Se alcanzó el límite de unidades de infantería." << endl;
+            continue;
+        } else if (selectedUnit.category == "Vehiculo" && newArmyList.vehicleCount >= 2) {
+            cout << "Se alcanzó el límite de unidades de vehículo." << endl;
+            continue;
+        }
+
+        if (newArmyList.totalPoints + selectedUnit.points > 500) {
+            cout << "Se excedería el límite de 500 puntos con esta unidad." << endl;
+            continue;
+        }
+
+        if (selectedUnit.category == "Personaje") {
+        	if (newArmyList.character != NULL) {
+                delete[] newArmyList.character;
+            }
+            newArmyList.character = new SpaceMarineUnit[1];
+            newArmyList.charactersCount++;
+        } else if (selectedUnit.category == "Linea de Batalla") {
+        	if (newArmyList.LineUnits != NULL) {
+                delete[] newArmyList.LineUnits;
+            }
+            newArmyList.LineUnits = new SpaceMarineUnit[4];
+            newArmyList.lineCount++;
+        } else if (selectedUnit.category == "Infanteria") {
+        	if (newArmyList.InfantryUnits != NULL) {
+                delete[] newArmyList.InfantryUnits;
+            }
+            newArmyList.InfantryUnits = new SpaceMarineUnit[3];
+            newArmyList.infantryCount++;
+        } else if (selectedUnit.category == "Vehiculo") {
+        	if (newArmyList.VehicleUnits != NULL) {
+                delete[] newArmyList.VehicleUnits;
+            }
+            newArmyList.VehicleUnits = new SpaceMarineUnit[2];
+            newArmyList.vehicleCount++;
+        }
+
+        newArmyList.totalPoints += selectedUnit.points;
+    }
+
+    armyLists[armyCount] = newArmyList;
+    armyCount++;
+
+    cout << "Lista de ejército creada satisfactoriamente." << endl;
+}
+
+void displayeditArmyList(ArmyList& selectedList, SpaceMarineUnit spaceMarineUnits[], int unitCount) {
+	    cout << "------ MENU DE EDICION DE LISTA DE EJERCITO DE SPACE MARINES ------" << endl;
+
+    int option;
+    int charactersCount, lineCount, infantryCount, vehicleCount;
+    countUnits(selectedList, charactersCount, lineCount, infantryCount, vehicleCount);
+
+    while (true) {
+        cout << "1. Agregar unidad\n"
+             << "2. Eliminar personaje\n"
+             << "3. Mostrar lista\n"
+             << "4. Obtener información de la lista\n"
+             << "5. Salir\n"
+             << "Seleccione una opción: ";
+        cin >> option;
+
+        switch (option) {
+            case 1: {
+                cout << "Unidades disponibles para agregar:" << endl;
+                displayUnits(spaceMarineUnits, unitCount); // Mostrar unidades disponibles
+
+                int unitIndex;
+                cout << "Seleccione el índice de la unidad para agregar: ";
+                cin >> unitIndex;
+
+                if (unitIndex >= 0 && unitIndex < unitCount) {
+                    SpaceMarineUnit selectedUnit = spaceMarineUnits[unitIndex];
+
+                    if (selectedUnit.category == "Personaje" && selectedList.charactersCount == 0) {
+                    	delete [] selectedList.character;
+                        selectedList.charactersCount++;
+                        cout << "Unidad de personaje agregada correctamente." << endl;
+                    } else if (selectedUnit.category == "Linea de Batalla" && selectedList.lineCount < selectedList.maxLineUnits) {
+                    	delete [] selectedList.LineUnits;
+                        selectedList.LineUnits[selectedList.lineCount] = selectedUnit;
+                        selectedList.lineCount++;
+                        cout << "Unidad de línea de batalla agregada correctamente." << endl;
+                    } else if (selectedUnit.category == "Infanteria" && selectedList.infantryCount < selectedList.maxInfantryUnits) {
+                    	delete [] selectedList.InfantryUnits;
+                        selectedList.InfantryUnits[selectedList.infantryCount] = selectedUnit;
+                        selectedList.infantryCount++;
+                        cout << "Unidad de infantería agregada correctamente." << endl;
+                    } else if (selectedUnit.category == "Vehiculo" && selectedList.vehicleCount < selectedList.maxVehicleUnits) {
+                    	delete [] selectedList.VehicleUnits;
+                        selectedList.VehicleUnits[selectedList.vehicleCount] = selectedUnit;
+                        selectedList.vehicleCount++;
+                        cout << "Unidad de vehículo agregada correctamente." << endl;
+                    } else {
+                        cout << "No hay espacio para agregar más unidades de esta categoría." << endl;
+                    }
+                } else {
+                    cout << "Índice de unidad no válido." << endl;
+                }
+                break;
+        	}
+            case 2: {
+                if (selectedList.character != NULL) {
+                    delete selectedList.character;
+                    selectedList.character = NULL;
+                    cout << "Personaje eliminado correctamente." << endl;
+                } else {
+                    cout << "No hay personajes para eliminar." << endl;
+                }
+                break;
+            }
+            case 3: {
+                cout << "Mostrando la lista actual:" << endl;
+                cout << "Personaje: ";
+                if (selectedList.character != NULL) {
+                    cout << selectedList.character->name << " (" << selectedList.character->category << ") - " << selectedList.character->points << " puntos." << endl;
+                } else {
+                    cout << "Ninguno" << endl;
+                }
+
+                cout << "Unidades de Línea de Batalla:" << endl;
+                for (int i = 0; i < selectedList.lineCount; ++i) {
+                    cout << selectedList.LineUnits[i].name << " - " << selectedList.LineUnits[i].category << " - " << selectedList.LineUnits[i].points << " puntos." << endl;
+                }
+
+                cout << "Unidades de Infanteria:" << endl;
+                for (int i = 0; i < selectedList.infantryCount; ++i) {
+                    cout << selectedList.InfantryUnits[i].name << " - " << selectedList.InfantryUnits[i].category << " - " << selectedList.InfantryUnits[i].points << " puntos." << endl;
+                }
+
+                cout << "Unidades de Vehiculo:" << endl;
+                for (int i = 0; i < selectedList.vehicleCount; ++i) {
+                    cout << selectedList.VehicleUnits[i].name << " - " << selectedList.VehicleUnits[i].category << " - " << selectedList.VehicleUnits[i].points << " puntos." << endl;
+                }
+                break;
+            }
+            case 4: {
+                cout << "Información detallada de la lista:" << endl;
+                cout << "Nombre de la lista: " << selectedList.name << endl;
+                cout << "ID: " << selectedList.id << endl;
+                cout << "Total de puntos: " << selectedList.totalPoints << endl;
+                break;
+            }
+            case 5: {
+                cout << "Saliendo..." << endl;
+                break;
+            }
+            default: {
+                cout << "Opción no válida. Por favor, seleccione una opción válida." << endl;
+                break;
+            }
+        }
+	}
+}
+
+void editArmyList(ArmyList armyLists[], int armyCount, SpaceMarineUnit spaceMarineUnits[], int unitCount) {
+    cout << "------ EDICION DE LISTA DE EJERCITO DE SPACE MARINES ------" << endl;
+
+    if (armyCount == 0) {
+        cout << "No hay listas de ejército creadas para editar." << endl;
+        return;
+    }
+
+    cout << "Listas de ejército disponibles: " << endl;
+    for (int i = 0; i < armyCount; ++i) {
+        cout << i + 1 << ". " << armyLists[i].name << endl;
+    }
+
+    int choice;
+    cout << "Seleccione la lista de ejército a editar (1-" << armyCount << "): ";
+    cin >> choice;
+
+    if (choice < 1 || choice > armyCount) {
+        cout << "Selección inválida." << endl;
+        return;
+    }
+
+    ArmyList& selectedList = armyLists[choice - 1];
+    cout << "Lista seleccionada: " << selectedList.name << endl;
+
+    displayeditArmyList(selectedList, spaceMarineUnits, unitCount);
+}
+
+void searchUnits(SpaceMarineUnit spaceMarineUnits[], int unitCount) {
+    string searchTerm;
+    cout << "Ingrese el término a buscar: ";
+    cin >> searchTerm;
+
+    int foundCount = 0;
+
+    cout << "Resultados de la búsqueda para '" << searchTerm << "':" << endl;
+
+    for (int i = 0; i < unitCount; ++i) {
+        if (spaceMarineUnits[i].name == searchTerm ||
+            spaceMarineUnits[i].category == searchTerm) {
+            cout << "Nombre: " << spaceMarineUnits[i].name << " - Categoría: " << spaceMarineUnits[i].category << " - Puntos: " << spaceMarineUnits[i].points << endl;
+            foundCount++;
+        }
+    }
+
+    if (foundCount == 0) {
+        cout << "No se encontraron unidades que coincidan con '" << searchTerm << "'." << endl;
+    }
+}
+
+void loadFromFile(SpaceMarineUnit spaceMarineUnits[], int& unitCount) {
+    ifstream file("space_marines_data.bin", ios::binary | ios::in);
+
+    if (!file.is_open()) {
+        cout << "No se pudo abrir el archivo para lectura." << endl;
+        return;
+    }
+
+    // Leer los datos del archivo binario
+    while (file.read(reinterpret_cast<char*>(&spaceMarineUnits[unitCount]), sizeof(SpaceMarineUnit))) {
+        unitCount++;
+    }
+
+    file.close();
+
+    cout << "Datos de unidades de Space Marines cargados desde el archivo." << endl;
+}
+
+void printToFile(ArmyList armyLists[], int armyCount) {
+    ofstream file("army_lists.txt");
+
+    if (!file.is_open()) {
+        cout << "No se pudo abrir el archivo para escritura." << endl;
+        return;
+    }
+
+    for (int i = 0; i < armyCount; ++i) {
+        file << "Nombre de la lista: " << armyLists[i].name << endl;
+        file << "Fecha: " << armyLists[i].date << endl;
+        file << "ID: " << armyLists[i].id << endl;
+
+        // Guardar información del personaje
+        if (armyLists[i].character != 0) {
+            file << "Personaje: " << armyLists[i].character->name << " (" << armyLists[i].character->category << ") - " << armyLists[i].character->points << " puntos." << endl;
+        } else {
+            file << "Personaje: Ninguno" << endl;
+        }
+		
+		if (armyLists[i].LineUnits != 0) {
+            file << "Linea de Batalla: " << armyLists[i].LineUnits->name << " (" << armyLists[i].LineUnits->category << ") - " << armyLists[i].LineUnits->points << " puntos." << endl;
+        } else {
+            file << "Linea de Batalla: Ninguno" << endl;
+        }
+        
+        if (armyLists[i].InfantryUnits != 0) {
+            file << "Infanteria: " << armyLists[i].InfantryUnits->name << " (" << armyLists[i].InfantryUnits->category << ") - " << armyLists[i].InfantryUnits->points << " puntos." << endl;
+        } else {
+            file << "Infanteria: Ninguno" << endl;
+        }
+        
+        if (armyLists[i].VehicleUnits != 0) {
+            file << "Vehiculo: " << armyLists[i].VehicleUnits->name << " (" << armyLists[i].VehicleUnits->category << ") - " << armyLists[i].VehicleUnits->points << " puntos." << endl;
+        } else {
+            file << "Vehiculo: Ninguno" << endl;
+        }
+        // Guardar total de puntos
+        file << "Total de puntos: " << armyLists[i].totalPoints << endl;
+    }
+
+    file.close();
+
+    cout << "Listas de ejército guardadas exitosamente en 'army_lists.txt'." << endl;
+}
+
+
+void getTime() {
+     time_t currentTime = time(NULL);
+
+    tm* localTime = localtime(&currentTime);
+
+    cout<<"Hora actual: ";
+    cout<<localTime->tm_hour<<":"<<localTime->tm_min <<":"<<localTime->tm_sec<<endl;
+}
